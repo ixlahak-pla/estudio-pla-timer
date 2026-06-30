@@ -134,18 +134,15 @@ body{color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'SF Pro Disp
 .rec-status.recording{color:var(--red)}
 .rec-status.done{color:var(--green)}
 
-/* VU METER LATERAL — fixo nas bordas da tela, estilo console Blackmagic */
+/* VU METER — estilo console de estúdio, segmentos LED */
 .vu-toggle-row{margin-top:10px}
 .btn-vu-toggle{width:100%;background:var(--s2);color:var(--dim);border:1px solid var(--dim);
   font-size:10px;font-weight:800;letter-spacing:.16em;padding:9px;border-radius:20px;cursor:pointer;transition:all .2s}
 .btn-vu-toggle.on{background:var(--green-dim);color:var(--green);border:1px solid var(--green-border)}
-
-.vu-side{position:fixed;top:50%;transform:translateY(-50%);width:16px;height:46vh;
-  display:flex;flex-direction:column-reverse;gap:2px;background:var(--s1);
-  border-radius:6px;padding:4px 3px;z-index:40;box-shadow:0 0 0 1px var(--dim)}
-.vu-side-l{left:6px}
-.vu-side-r{right:6px}
-.vu-seg{border-radius:1px;background:var(--dim);flex:1;transition:background .05s linear}
+.vu-wrap{display:flex;gap:6px;justify-content:center;align-items:flex-end;height:64px;margin-top:12px}
+.vu-bar{display:flex;flex-direction:column-reverse;gap:2px;width:34px;height:100%;
+  background:var(--s2);border-radius:4px;padding:3px;justify-content:flex-start}
+.vu-seg{height:6px;border-radius:1px;background:var(--dim);transition:background .05s linear}
 .vu-seg.on-green{background:var(--green)}
 .vu-seg.on-amber{background:var(--amber)}
 .vu-seg.on-red{background:var(--red)}
@@ -273,9 +270,6 @@ body{color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'SF Pro Disp
   </div>
 </div>
 
-<div class="vu-side vu-side-l" id="vu-side-l" style="display:none"></div>
-<div class="vu-side vu-side-r" id="vu-side-r" style="display:none"></div>
-
 <div class="app">
 
   <header class="header">
@@ -353,6 +347,11 @@ body{color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'SF Pro Disp
 
     <div class="vu-toggle-row">
       <button class="btn-vu-toggle off" id="btn-vu-toggle" onclick="toggleVUStandalone()">VU</button>
+    </div>
+
+    <div class="vu-wrap" id="vu-wrap" style="display:none">
+      <div class="vu-bar" id="vu-l"></div>
+      <div class="vu-bar" id="vu-r"></div>
     </div>
 
     <div class="rec-status" id="rec-status">gravador desligado</div>
@@ -780,11 +779,11 @@ function segColor(i){
   return 'on-red';
 }
 function startVUMeter(stream){
-  const barL=document.getElementById('vu-side-l');
-  const barR=document.getElementById('vu-side-r');
+  const wrap=document.getElementById('vu-wrap');
+  const barL=document.getElementById('vu-l');
+  const barR=document.getElementById('vu-r');
   buildVUBar(barL);buildVUBar(barR);
-  barL.style.display='flex';
-  barR.style.display='flex';
+  wrap.style.display='flex';
 
   vuCtx=new (window.AudioContext||window.webkitAudioContext)();
   vuSource=vuCtx.createMediaStreamSource(stream);
@@ -816,8 +815,7 @@ function stopVUMeter(){
   if(vuSource){try{vuSource.disconnect()}catch(e){}vuSource=null}
   if(vuCtx){try{vuCtx.close()}catch(e){}vuCtx=null}
   vuAnalyser=null;
-  document.getElementById('vu-side-l').style.display='none';
-  document.getElementById('vu-side-r').style.display='none';
+  document.getElementById('vu-wrap').style.display='none';
 }
 
 /* Botão VU avulso — liga o medidor a qualquer momento, sem precisar gravar */
