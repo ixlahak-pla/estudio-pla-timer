@@ -1,4 +1,4 @@
-const CACHE = 'timer-pla-v2';
+const CACHE = 'timer-pla-v3';
 const ASSETS = ['/pomodoro-estudio-pla.html', '/manifest.json'];
 
 self.addEventListener('install', e => {
@@ -15,8 +15,16 @@ self.addEventListener('activate', e => {
   );
 });
 
+// Network-first: sempre tenta buscar a versão mais nova.
+// Só usa a copia salva se o celular estiver sem internet.
 self.addEventListener('fetch', e => {
   e.respondWith(
-    caches.match(e.request).then(cached => cached || fetch(e.request))
+    fetch(e.request)
+      .then(res => {
+        const resClone = res.clone();
+        caches.open(CACHE).then(c => c.put(e.request, resClone));
+        return res;
+      })
+      .catch(() => caches.match(e.request))
   );
 });
