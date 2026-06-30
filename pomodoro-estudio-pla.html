@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0D0D0D">
+<title>Timer · Estúdio Plá</title>
+<link rel="manifest" href="/manifest.json">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+  --amber:#F59E0B;--amber-dim:#78450A;--amber-glow:rgba(245,158,11,.25);
+  --bg:#0D0D0D;--s1:#1A1A1A;--s2:#252525;
+  --text:#F0F0F0;--muted:#555;--dim:#2A2A2A;
+  --red:#EF4444;--red-dim:#2A0808;--red-border:#5A1010;
+  --green:#22C55E;--green-dim:#0A2A0A;--green-border:#1A5C2A;
+}
+html,body{height:100%;background:var(--bg)}
+body{color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sans-serif;overscroll-behavior:none}
+
+/* APP */
+.app{display:flex;flex-direction:column;min-height:100dvh;max-width:430px;margin:0 auto;
+  padding:max(env(safe-area-inset-top),16px) 18px max(env(safe-area-inset-bottom),20px);gap:6px}
+
+/* DOT */
+.dot{width:10px;height:10px;border-radius:50%;transition:background .3s,border-color .3s,box-shadow .3s;flex-shrink:0}
+.dot.idle{background:transparent;border:1.5px solid #1a5c1a}
+.dot.active{background:var(--green);border:1.5px solid var(--green)}
+.dot.running{background:var(--red);border:1.5px solid var(--red);animation:dot-pulse 1s ease-in-out infinite}
+@keyframes dot-pulse{
+  0%,100%{opacity:1;box-shadow:0 0 6px rgba(239,68,68,.5)}
+  50%{opacity:.65;box-shadow:none}
+}
+
+/* HEADER */
+.header{display:flex;align-items:center;justify-content:space-between;padding:4px 0 8px}
+.brand{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
+.brand-name{font-size:10px;font-weight:700;letter-spacing:.22em;color:var(--muted)}
+.btn-hamburger{background:var(--s1);border:none;width:36px;height:36px;border-radius:9px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer}
+.btn-hamburger span{display:block;width:14px;height:1.5px;background:var(--muted);border-radius:1px;transition:background .2s}
+.btn-hamburger:hover span{background:var(--text)}
+
+/* TABS */
+.tabs{display:flex;background:var(--s1);border-radius:12px;padding:4px;gap:4px}
+.tab{flex:1;border:none;background:none;color:var(--muted);font-size:10px;font-weight:700;
+  letter-spacing:.12em;padding:9px 4px;border-radius:9px;cursor:pointer;transition:all .2s}
+.tab.active{background:var(--s2);color:var(--text)}
+
+/* PANELS */
+.panel{display:none;flex-direction:column;gap:6px}
+.panel.active{display:flex}
+
+/* MODE BAR */
+.mode-bar{display:flex;gap:5px}
+.mode-btn{flex:1;border:none;background:var(--s1);color:var(--muted);font-size:9px;font-weight:700;
+  letter-spacing:.06em;padding:8px 2px;border-radius:9px;cursor:pointer;transition:all .2s}
+.mode-btn.active{background:var(--amber);color:#000}
+
+/* RING */
+.ring-wrap{display:flex;justify-content:center;align-items:center;position:relative;
+  cursor:pointer;user-select:none;margin:2px 0}
+.ring-svg{width:min(268px,70vw);height:min(268px,70vw);transform:rotate(-90deg);overflow:visible}
+.ring-bg{fill:none;stroke:var(--s1);stroke-width:10}
+.ring-fg{fill:none;stroke:var(--amber);stroke-width:10;stroke-linecap:round;
+  transition:stroke-dashoffset .08s linear;filter:drop-shadow(0 0 4px var(--amber-glow))}
+.ring-center{position:absolute;text-align:center;pointer-events:none}
+.time-big{font-size:clamp(34px,10vw,48px);font-weight:200;font-variant-numeric:tabular-nums;
+  letter-spacing:-.02em;line-height:1}
+.time-cs{font-size:clamp(16px,5vw,22px);color:var(--muted)}
+.ring-sub{font-size:9px;color:#333;letter-spacing:.1em;margin-top:4px}
+.rec-ring{display:flex;align-items:center;justify-content:center;gap:4px;margin-top:6px;
+  font-size:8px;font-weight:700;letter-spacing:.1em;color:var(--red)}
+.rec-ring-dot{width:6px;height:6px;border-radius:50%;background:var(--red);animation:dot-pulse 1s ease-in-out infinite}
+
+/* ADDITIVE */
+.add-label{text-align:center;font-size:8px;font-weight:700;letter-spacing:.12em;color:#333;margin:2px 0 0}
+.adds{display:flex;gap:6px}
+.add-btn{flex:1;background:var(--s1);border:1px solid var(--dim);color:var(--muted);
+  font-size:14px;font-weight:700;padding:10px 2px;border-radius:12px;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;gap:1px;transition:all .15s}
+.add-btn span{font-size:8px;font-weight:600;color:#333}
+.add-btn:active{background:var(--amber-dim);border-color:var(--amber);color:var(--amber);transform:scale(.96)}
+
+/* CONTROLS */
+.controls{display:flex;align-items:center;justify-content:center;gap:12px;padding:4px 0 6px}
+.btn-main{background:var(--amber);color:#000;border:none;font-size:12px;font-weight:800;
+  letter-spacing:.12em;padding:15px 32px;border-radius:50px;cursor:pointer;min-width:120px;transition:all .15s}
+.btn-main:active{transform:scale(.96)}
+.btn-round{background:var(--s1);color:var(--text);border:none;width:48px;height:48px;border-radius:50%;
+  font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.btn-round:active{transform:scale(.95)}
+.btn-round:disabled{opacity:.25;pointer-events:none}
+
+/* CRONÔMETRO */
+.chrono-wrap{display:flex;flex-direction:column;align-items:center;padding:20px 0 8px;cursor:pointer;user-select:none}
+.chrono-time{font-size:clamp(50px,15vw,64px);font-weight:200;font-variant-numeric:tabular-nums;letter-spacing:-.03em;line-height:1}
+.chrono-cs{font-size:clamp(24px,7.5vw,32px);color:var(--muted)}
+.chrono-sub{font-size:9px;color:#333;letter-spacing:.1em;margin-top:6px}
+.laps-list{max-height:180px;overflow-y:auto;-webkit-overflow-scrolling:touch;border-radius:10px;overflow:hidden}
+.lap-item{display:flex;justify-content:space-between;align-items:center;padding:9px 14px;
+  background:var(--s1);border-bottom:1px solid var(--bg);font-size:12px;font-variant-numeric:tabular-nums}
+.lap-item:first-child{border-radius:10px 10px 0 0}
+.lap-item:last-child{border-bottom:none;border-radius:0 0 10px 10px}
+.lap-item:only-child{border-radius:10px}
+.lap-n{color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.06em}
+.lap-d{color:var(--amber);font-weight:500}
+
+/* RECORDER */
+.recorder{background:var(--s1);border-radius:14px;padding:14px;margin-top:4px}
+.rec-title{font-size:9px;font-weight:700;letter-spacing:.14em;color:var(--muted);margin-bottom:10px}
+.rec-row{display:flex;gap:8px;align-items:center}
+.btn-rec{flex:1;border:none;font-size:11px;font-weight:800;letter-spacing:.1em;
+  padding:12px 10px;border-radius:30px;cursor:pointer;transition:all .2s}
+.btn-rec.off{background:var(--s2);color:var(--muted)}
+.btn-rec.ready{background:var(--red-dim);color:var(--red);border:1px solid var(--red-border)}
+.btn-rec.recording{background:var(--red);color:#fff;animation:rec-pulse 1s ease-in-out infinite}
+@keyframes rec-pulse{0%,100%{opacity:1}50%{opacity:.75}}
+.btn-play-rec{width:44px;height:44px;border-radius:50%;border:none;background:var(--s2);
+  color:var(--muted);font-size:14px;cursor:pointer;display:flex;align-items:center;
+  justify-content:center;flex-shrink:0;transition:all .2s}
+.btn-play-rec.on{background:var(--green-dim);color:var(--green);border:1px solid var(--green-border)}
+.btn-play-rec:disabled{opacity:.3;pointer-events:none}
+.rec-status{font-size:10px;color:var(--muted);margin-top:8px;line-height:1.4}
+.rec-status.ready{color:var(--red)}
+.rec-status.recording{color:var(--red)}
+.rec-status.done{color:var(--green)}
+
+/* MENU OVERLAY + DRAWER */
+.menu-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;
+  opacity:0;pointer-events:none;transition:opacity .3s}
+.menu-overlay.open{opacity:1;pointer-events:all}
+.menu-drawer{position:fixed;top:0;right:0;bottom:0;width:min(320px,85vw);background:#111;z-index:101;
+  transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);
+  display:flex;flex-direction:column;
+  padding:max(env(safe-area-inset-top),20px) 0 max(env(safe-area-inset-bottom),20px)}
+.menu-drawer.open{transform:translateX(0)}
+.menu-header{display:flex;align-items:center;justify-content:space-between;
+  padding:0 20px 16px;border-bottom:1px solid var(--dim)}
+.menu-brand{font-size:11px;font-weight:700;letter-spacing:.2em;color:var(--muted)}
+.menu-close{background:var(--s2);border:none;color:var(--muted);width:32px;height:32px;
+  border-radius:50%;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center}
+.menu-items{flex:1;overflow-y:auto;padding:8px 0}
+.menu-item{display:flex;align-items:center;gap:14px;padding:14px 20px;background:none;
+  border:none;width:100%;text-align:left;cursor:pointer;transition:background .15s}
+.menu-item:hover{background:var(--s1)}
+.menu-item-icon{width:36px;height:36px;border-radius:10px;background:var(--s2);
+  display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.menu-item-name{font-size:14px;color:var(--text);font-weight:500}
+.menu-item-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.menu-cta{margin:12px 16px 0;background:var(--amber-dim);border-radius:14px;padding:16px}
+.menu-cta-text{font-size:12px;color:var(--amber);margin-bottom:12px;line-height:1.4}
+.menu-cta-btn{background:var(--amber);color:#000;border:none;font-size:11px;font-weight:800;
+  letter-spacing:.1em;padding:12px 16px;border-radius:30px;cursor:pointer;width:100%}
+
+/* LIBRARY */
+.library-panel{position:fixed;inset:0;background:var(--bg);z-index:102;
+  display:none;flex-direction:column;
+  padding:max(env(safe-area-inset-top),20px) 0 max(env(safe-area-inset-bottom),20px)}
+.library-panel.open{display:flex}
+.library-header{display:flex;align-items:center;gap:12px;padding:0 20px 16px;border-bottom:1px solid var(--dim)}
+.library-title{flex:1;font-size:15px;font-weight:600}
+.library-body{flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:8px}
+.library-empty{text-align:center;color:var(--muted);font-size:13px;margin-top:40px}
+.rec-card{background:var(--s1);border-radius:12px;padding:14px;display:flex;align-items:center;gap:12px}
+.rec-card-info{flex:1;min-width:0}
+.rec-card-name{font-size:13px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rec-card-meta{font-size:11px;color:var(--muted);margin-top:2px}
+.rec-card-actions{display:flex;gap:6px;flex-shrink:0}
+.btn-act{background:var(--s2);border:none;color:var(--text);width:36px;height:36px;
+  border-radius:50%;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.btn-act.del{color:var(--red)}
+.btn-act:active{transform:scale(.92)}
+
+/* ALARM */
+.alarm-overlay{position:fixed;inset:0;background:rgba(13,13,13,.97);z-index:200;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  opacity:0;pointer-events:none;transition:opacity .3s}
+.alarm-overlay.active{opacity:1;pointer-events:all}
+.alarm-bell{font-size:60px;animation:bell .4s ease-in-out infinite alternate}
+@keyframes bell{from{transform:rotate(-18deg)}to{transform:rotate(18deg)}}
+.alarm-title{font-size:22px;font-weight:800;letter-spacing:.05em}
+.alarm-mode{font-size:12px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;margin-bottom:24px}
+.btn-stop-alarm{background:var(--amber);color:#000;border:none;font-size:14px;font-weight:800;
+  letter-spacing:.1em;padding:18px 52px;border-radius:50px;cursor:pointer;
+  animation:glow 1.2s ease-in-out infinite alternate}
+@keyframes glow{from{box-shadow:0 0 20px var(--amber-glow)}to{box-shadow:0 0 50px rgba(245,158,11,.7)}}
+
+/* COUNTDOWN */
+.countdown-overlay{position:fixed;inset:0;background:rgba(13,13,13,.93);z-index:150;
+  display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px}
+.countdown-overlay.active{display:flex}
+.countdown-n{font-size:120px;font-weight:800;color:var(--amber);animation:cpop .9s ease-out}
+@keyframes cpop{from{transform:scale(1.3);opacity:.5}to{transform:scale(1);opacity:1}}
+.countdown-sub{font-size:11px;letter-spacing:.18em;color:var(--muted);text-transform:uppercase}
+
+.spacer{flex:1}
+</style>
+</head>
+<body>
+
+<div class="menu-overlay" id="menu-overlay" onclick="closeMenu()"></div>
+
+<div class="menu-drawer" id="menu-drawer">
+  <div class="menu-header">
+    <span class="menu-brand">ESTÚDIO PLÁ</span>
+    <button class="menu-close" onclick="closeMenu()">✕</button>
+  </div>
+  <div class="menu-items">
+    <button class="menu-item" onclick="openLibrary()">
+      <div class="menu-item-icon">🎙</div>
+      <div><div class="menu-item-name">Minhas gravações</div><div class="menu-item-sub">biblioteca · apagar aqui</div></div>
+    </button>
+    <button class="menu-item" onclick="exportLastRec()">
+      <div class="menu-item-icon">📤</div>
+      <div><div class="menu-item-name">Exportar última gravação</div><div class="menu-item-sub">e-mail · WhatsApp · Drive</div></div>
+    </button>
+    <button class="menu-item" onclick="openManual();closeMenu()">
+      <div class="menu-item-icon">📖</div>
+      <div><div class="menu-item-name">Manual do estúdio</div><div class="menu-item-sub">tire o máximo do app</div></div>
+    </button>
+    <div class="menu-cta">
+      <div class="menu-cta-text">v2.0 chegando — transcrição automática com identificação da sua voz</div>
+      <button class="menu-cta-btn" onclick="wantV2()">QUERO SER O PRIMEIRO →</button>
+    </div>
+  </div>
+</div>
+
+<div class="library-panel" id="library-panel">
+  <div class="library-header">
+    <button class="btn-round" onclick="closeLibrary()" style="width:36px;height:36px;font-size:14px">←</button>
+    <span class="library-title">Minhas Gravações</span>
+  </div>
+  <div class="library-body" id="library-body">
+    <div class="library-empty">Nenhuma gravação ainda</div>
+  </div>
+</div>
+
+<div class="app">
+
+  <header class="header">
+    <div class="brand" onclick="playLogotone()">
+      <div class="dot idle" id="dot"></div>
+      <span class="brand-name">ESTÚDIO PLÁ</span>
+    </div>
+    <button class="btn-hamburger" onclick="openMenu()" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" id="tab-pomo"   onclick="switchTab('pomo')">POMODORO</button>
+    <button class="tab"        id="tab-chrono" onclick="switchTab('chrono')">CRONÔMETRO</button>
+  </div>
+
+  <div class="panel active" id="panel-pomo">
+    <div class="mode-bar">
+      <button class="mode-btn active" id="mode-foco"  onclick="setMode('foco')">FOCO</button>
+      <button class="mode-btn"        id="mode-curta" onclick="setMode('curta')">PAUSA CURTA</button>
+      <button class="mode-btn"        id="mode-longa" onclick="setMode('longa')">PAUSA LONGA</button>
+    </div>
+
+    <div class="ring-wrap" id="ring-wrap" onclick="onRingTap()">
+      <svg class="ring-svg" viewBox="0 0 200 200" style="transform:rotate(-90deg);overflow:visible">
+        <circle class="ring-bg" cx="100" cy="100" r="86"/>
+        <circle class="ring-fg" id="ring-fg" cx="100" cy="100" r="86"
+          stroke-dasharray="540.35" stroke-dashoffset="0"/>
+      </svg>
+      <div class="ring-center">
+        <div class="time-big"><span id="p-mm">25</span>:<span id="p-ss">00</span><span class="time-cs">.<span id="p-cs">00</span></span></div>
+        <div class="ring-sub" id="ring-sub">toque para iniciar</div>
+        <div class="rec-ring" id="rec-ring" style="display:none"><div class="rec-ring-dot"></div>REC PRONTO</div>
+      </div>
+    </div>
+
+    <div class="add-label">+ ADICIONAR TEMPO</div>
+    <div class="adds">
+      <button class="add-btn" onclick="addTime(5)">5<span>min</span></button>
+      <button class="add-btn" onclick="addTime(10)">10<span>min</span></button>
+      <button class="add-btn" onclick="addTime(30)">30<span>min</span></button>
+      <button class="add-btn" onclick="addTime(60)">60<span>min</span></button>
+    </div>
+
+    <div class="controls">
+      <button class="btn-round" onclick="resetPomo()">↺</button>
+      <button class="btn-main" id="pomo-btn" onclick="togglePomo()">INICIAR</button>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-chrono">
+    <div class="chrono-wrap" onclick="onChronoTap()">
+      <div class="chrono-time">
+        <span id="c-hh" style="display:none"></span><span id="c-mm">00</span>:<span id="c-ss">00</span><span class="chrono-cs">.<span id="c-cs">00</span></span>
+      </div>
+      <div class="chrono-sub" id="chrono-sub">toque para iniciar</div>
+      <div class="rec-ring" id="rec-ring-c" style="display:none"><div class="rec-ring-dot"></div>REC PRONTO</div>
+    </div>
+    <div class="laps-list" id="laps-list"></div>
+    <div class="controls">
+      <button class="btn-round" id="btn-lap"          onclick="addLap()"    disabled>◎</button>
+      <button class="btn-main"  id="chrono-btn"        onclick="toggleChrono()">INICIAR</button>
+      <button class="btn-round" id="btn-chrono-reset"  onclick="resetChrono()">↺</button>
+    </div>
+  </div>
+
+  <div class="spacer"></div>
+
+  <div class="recorder">
+    <div class="rec-title">SUA VOZ NO ALARME</div>
+    <div class="rec-row">
+      <button class="btn-rec off" id="btn-rec" onclick="cycleRec()">PREPARAR</button>
+      <button class="btn-play-rec" id="btn-play-rec" onclick="playRec()" disabled>▶</button>
+    </div>
+    <div class="rec-status" id="rec-status">gravador desligado</div>
+  </div>
+
+</div>
+
+<div class="alarm-overlay" id="alarm-overlay">
+  <div class="alarm-bell">⏰</div>
+  <div class="alarm-title">TEMPO ESGOTADO</div>
+  <div class="alarm-mode" id="alarm-mode"></div>
+  <button class="btn-stop-alarm" onclick="stopAlarm()">PARAR</button>
+</div>
+
+<div class="countdown-overlay" id="countdown-overlay">
+  <div class="countdown-n" id="countdown-n">3</div>
+  <div class="countdown-sub">prepare-se para falar…</div>
+</div>
+
+<script>
+const CIRC=2*Math.PI*86;
+const MODES={foco:{label:'FOCO',ms:25*60000},curta:{label:'PAUSA CURTA',ms:5*60000},longa:{label:'PAUSA LONGA',ms:15*60000}};
+
+let dotS='idle',mode='foco';
+let pomoTotal=MODES.foco.ms,pomoLeft=pomoTotal,pomoRun=false,pomoStart=null,pomoRAF=null,pomoSession=0;
+let chRun=false,chStart=null,chSaved=0,chRAF=null,lapBase=0,lapCnt=0;
+let audioCtx=null;
+let recS='off',mediaRec=null,recChunks=[],lastBlob=null,lastURL=null,recSynced=false;
+let alarmRun=false,alarmTimer=null,alarmVoice=null;
+let db=null;
+
+try{alarmVoice=localStorage.getItem('pla_alarm_voice')||null}catch(e){}
+
+// ── AUDIO ──
+function actx(){
+  if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+  if(audioCtx.state==='suspended')audioCtx.resume();
+  return audioCtx;
+}
+
+function playLogotone(){
+  const c=actx(),t=c.currentTime;
+  const oT=c.createOscillator(),gT=c.createGain();
+  oT.type='sine';oT.frequency.setValueAtTime(80,t);oT.frequency.exponentialRampToValueAtTime(28,t+.22);
+  gT.gain.setValueAtTime(1.1,t);gT.gain.exponentialRampToValueAtTime(.001,t+.38);
+  oT.connect(gT);gT.connect(c.destination);oT.start(t);oT.stop(t+.42);
+  const oS=c.createOscillator(),gS=c.createGain();
+  oS.type='sawtooth';oS.frequency.setValueAtTime(860,t+.04);oS.frequency.exponentialRampToValueAtTime(170,t+.56);
+  gS.gain.setValueAtTime(0,t);gS.gain.linearRampToValueAtTime(.22,t+.08);gS.gain.exponentialRampToValueAtTime(.001,t+.62);
+  oS.connect(gS);gS.connect(c.destination);oS.start(t+.04);oS.stop(t+.66);
+  [261.63,329.63,392,523.25].forEach(hz=>{
+    const o=c.createOscillator(),g=c.createGain();
+    o.type='triangle';o.frequency.value=hz;
+    g.gain.setValueAtTime(0,t+.44);g.gain.linearRampToValueAtTime(.12,t+.54);
+    g.gain.setValueAtTime(.12,t+1.3);g.gain.exponentialRampToValueAtTime(.001,t+2.6);
+    o.connect(g);g.connect(c.destination);o.start(t+.44);o.stop(t+2.65);
+  });
+  setDot('active');setTimeout(()=>{if(!pomoRun&&!chRun)setDot('idle')},700);
+}
+
+// ── DOT ──
+function setDot(s){dotS=s;document.getElementById('dot').className='dot '+s}
+
+// ── ALARM ──
+function fireAlarm(label){
+  alarmRun=true;document.getElementById('alarm-mode').textContent=label;
+  document.getElementById('alarm-overlay').classList.add('active');
+  ringAlarm();alarmTimer=setInterval(ringAlarm,3600);setDot('running');
+}
+function ringAlarm(){
+  if(alarmVoice){try{new Audio(alarmVoice).play();return}catch(e){}}
+  playLogotone();
+}
+function stopAlarm(){
+  alarmRun=false;clearInterval(alarmTimer);alarmTimer=null;
+  document.getElementById('alarm-overlay').classList.remove('active');
+  setDot(pomoRun||chRun?'running':'idle');
+}
+
+// ── POMODORO ──
+function setMode(m){
+  if(pomoRun)return;
+  mode=m;
+  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('mode-'+m).classList.add('active');
+  pomoTotal=MODES[m].ms;pomoLeft=pomoTotal;
+  renderPomo(pomoLeft);ringProg(1);setDot('active');
+}
+function addTime(min){
+  actx();if(pomoRun)return;
+  pomoTotal+=min*60000;pomoLeft+=min*60000;
+  renderPomo(pomoLeft);ringProg(pomoLeft/pomoTotal);setDot('active');
+}
+function onRingTap(){actx();togglePomo()}
+function togglePomo(){actx();pomoRun?pausePomo():startPomo()}
+function startPomo(){
+  pomoRun=true;pomoStart=Date.now()-(pomoTotal-pomoLeft);
+  document.getElementById('pomo-btn').textContent='PAUSAR';
+  document.getElementById('ring-sub').textContent='toque para pausar';
+  setDot('running');setupMS();
+  if(recS==='ready'){recSynced=true;pomoSession++;beginRec('Foco · Parte '+pomoSession)}
+  tickPomo();
+}
+function pausePomo(){
+  pomoRun=false;cancelAnimationFrame(pomoRAF);
+  document.getElementById('pomo-btn').textContent='CONTINUAR';
+  document.getElementById('ring-sub').textContent='toque para continuar';
+  setDot('active');
+  if(recSynced&&recS==='recording')stopRecSave();
+}
+function resetPomo(){
+  pomoRun=false;cancelAnimationFrame(pomoRAF);
+  pomoLeft=pomoTotal;renderPomo(pomoLeft);ringProg(1);
+  document.getElementById('pomo-btn').textContent='INICIAR';
+  document.getElementById('ring-sub').textContent='toque para iniciar';
+  setDot('idle');
+  if(recSynced&&recS==='recording')stopRecSave();
+  recSynced=false;
+}
+function tickPomo(){
+  const elapsed=Date.now()-pomoStart;
+  pomoLeft=Math.max(0,pomoTotal-elapsed);
+  renderPomo(pomoLeft);ringProg(pomoLeft/pomoTotal);
+  if(pomoLeft<=0){
+    pomoRun=false;renderPomo(0);
+    document.getElementById('pomo-btn').textContent='INICIAR';
+    document.getElementById('ring-sub').textContent='toque para iniciar';
+    if(recSynced&&recS==='recording')stopRecSave();
+    recSynced=false;
+    fireAlarm(MODES[mode].label);
+    if(mode==='foco')setTimeout(()=>{if(!pomoRun)setMode('curta')},600);
+    return;
+  }
+  pomoRAF=requestAnimationFrame(tickPomo);
+}
+function renderPomo(ms){
+  const s=Math.floor(ms/1000),cs=Math.floor((ms%1000)/10);
+  document.getElementById('p-mm').textContent=pad(Math.floor(s/60));
+  document.getElementById('p-ss').textContent=pad(s%60);
+  document.getElementById('p-cs').textContent=pad(cs);
+}
+function ringProg(p){
+  p=Math.max(0,Math.min(1,p));
+  document.getElementById('ring-fg').style.strokeDashoffset=CIRC*(1-p);
+}
+
+// ── CRONÔMETRO ──
+function onChronoTap(){actx();toggleChrono()}
+function toggleChrono(){
+  actx();
+  if(chRun){
+    chSaved+=Date.now()-chStart;chRun=false;cancelAnimationFrame(chRAF);
+    document.getElementById('chrono-btn').textContent='CONTINUAR';
+    document.getElementById('chrono-sub').textContent='toque para continuar';
+    document.getElementById('btn-chrono-reset').disabled=false;
+    setDot('active');
+    if(recSynced&&recS==='recording')stopRecSave();
+  }else{
+    chStart=Date.now();chRun=true;
+    document.getElementById('chrono-btn').textContent='PAUSAR';
+    document.getElementById('chrono-sub').textContent='toque para pausar';
+    document.getElementById('btn-lap').disabled=false;
+    document.getElementById('btn-chrono-reset').disabled=true;
+    setDot('running');setupMS();
+    if(recS==='ready'){recSynced=true;beginRec('Cronômetro')}
+    tickChrono();
+  }
+}
+function tickChrono(){
+  const ms=chSaved+(chRun?Date.now()-chStart:0);
+  renderChrono(ms);if(chRun)chRAF=requestAnimationFrame(tickChrono);
+}
+function renderChrono(ms){
+  const s=Math.floor(ms/1000),cs=Math.floor((ms%1000)/10);
+  const hh=Math.floor(s/3600),mm=Math.floor((s%3600)/60),ss=s%60;
+  const el=document.getElementById('c-hh');
+  if(hh>0){el.style.display='inline';el.textContent=pad(hh)+':'}else el.style.display='none';
+  document.getElementById('c-mm').textContent=pad(mm);
+  document.getElementById('c-ss').textContent=pad(ss);
+  document.getElementById('c-cs').textContent=pad(cs);
+}
+function addLap(){
+  const ms=chSaved+(chRun?Date.now()-chStart:0);
+  const delta=ms-lapBase;lapBase=ms;lapCnt++;
+  const el=document.createElement('div');el.className='lap-item';
+  el.innerHTML=`<span class="lap-n">VOLTA ${lapCnt}</span><span class="lap-d">+${msStr(delta)}</span><span>${msStr(ms)}</span>`;
+  document.getElementById('laps-list').prepend(el);
+}
+function resetChrono(){
+  chRun=false;chSaved=0;lapBase=0;lapCnt=0;cancelAnimationFrame(chRAF);renderChrono(0);
+  document.getElementById('laps-list').innerHTML='';
+  document.getElementById('chrono-btn').textContent='INICIAR';
+  document.getElementById('chrono-sub').textContent='toque para iniciar';
+  document.getElementById('btn-lap').disabled=true;
+  document.getElementById('btn-chrono-reset').disabled=false;
+  setDot('idle');recSynced=false;
+}
+
+// ── TABS ──
+function switchTab(t){
+  document.querySelectorAll('.tab').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(el=>el.classList.remove('active'));
+  document.getElementById('tab-'+t).classList.add('active');
+  document.getElementById('panel-'+t).classList.add('active');
+  if(dotS==='idle')setDot('active');
+}
+
+// ── RECORDER ──
+function cycleRec(){
+  actx();
+  if(recS==='off')prepareRec();
+  else if(recS==='ready')cancelRec();
+  else if(recS==='recording')stopRecSave();
+}
+function prepareRec(){
+  navigator.mediaDevices.getUserMedia({audio:true})
+    .then(s=>{s.getTracks().forEach(t=>t.stop());setRecS('ready')})
+    .catch(()=>alert('Acesso ao microfone negado. Verifique as permissões do Chrome.'));
+}
+function cancelRec(){setRecS('off');recSynced=false}
+async function beginRec(label){
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    recChunks=[];
+    const mimes=['audio/webm;codecs=opus','audio/ogg;codecs=opus','audio/mp4','audio/webm'];
+    const mime=mimes.find(m=>MediaRecorder.isTypeSupported(m))||'';
+    const opts={audioBitsPerSecond:192000};if(mime)opts.mimeType=mime;
+    mediaRec=new MediaRecorder(stream,opts);
+    mediaRec._label=label||'Gravação';
+    mediaRec.ondataavailable=e=>{if(e.data.size>0)recChunks.push(e.data)};
+    mediaRec.onstop=async()=>{
+      stream.getTracks().forEach(t=>t.stop());
+      const blob=new Blob(recChunks,{type:mediaRec.mimeType||'audio/webm'});
+      await saveRec(blob,mediaRec._label);
+      lastBlob=blob;
+      if(lastURL)URL.revokeObjectURL(lastURL);
+      lastURL=URL.createObjectURL(blob);
+      const fr=new FileReader();
+      fr.onload=()=>{alarmVoice=fr.result;try{localStorage.setItem('pla_alarm_voice',alarmVoice)}catch(e){}};
+      fr.readAsDataURL(blob);
+      setRecS('off');enablePlay();
+    };
+    mediaRec.start();setRecS('recording');
+  }catch(e){alert('Erro ao gravar: '+e.message);setRecS('off')}
+}
+function stopRecSave(){
+  if(mediaRec&&mediaRec.state!=='inactive')mediaRec.stop();
+}
+function playRec(){
+  if(lastURL){const a=new Audio(lastURL);a.play()}
+  else if(alarmVoice)new Audio(alarmVoice).play();
+}
+function enablePlay(){
+  const b=document.getElementById('btn-play-rec');b.disabled=false;b.classList.add('on');
+}
+function setRecS(s){
+  recS=s;
+  const btn=document.getElementById('btn-rec');
+  const status=document.getElementById('rec-status');
+  const rr=document.getElementById('rec-ring');
+  const rrc=document.getElementById('rec-ring-c');
+  btn.className='btn-rec '+s;
+  if(s==='off'){
+    btn.textContent='PREPARAR';status.textContent='gravador desligado';
+    status.className='rec-status';rr.style.display='none';rrc.style.display='none';
+  }else if(s==='ready'){
+    btn.textContent='CANCELAR';status.textContent='armado — dispara com o timer';
+    status.className='rec-status ready';rr.style.display='flex';rrc.style.display='flex';
+    if(dotS!=='running')setDot('active');
+  }else{
+    btn.textContent='■ PARAR';status.textContent='🔴 gravando…';
+    status.className='rec-status recording';rr.style.display='none';rrc.style.display='none';
+  }
+}
+
+// ── INDEXEDDB ──
+function openDB(){
+  return new Promise((res,rej)=>{
+    if(db){res(db);return}
+    const req=indexedDB.open('estudiopla',1);
+    req.onupgradeneeded=e=>{
+      const d=e.target.result;
+      if(!d.objectStoreNames.contains('recordings'))
+        d.createObjectStore('recordings',{keyPath:'id',autoIncrement:true}).createIndex('date','date');
+    };
+    req.onsuccess=e=>{db=e.target.result;res(db)};
+    req.onerror=e=>rej(e.target.error);
+  });
+}
+async function saveRec(blob,label){
+  const d=await openDB();
+  const now=new Date();
+  const ds=now.toLocaleDateString('pt-BR')+' '+now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  const tx=d.transaction('recordings','readwrite');
+  tx.objectStore('recordings').add({blob,name:'Estúdio Plá · '+label+' · '+ds,date:now.getTime(),size:blob.size,type:blob.type});
+}
+async function getAllRecs(){
+  const d=await openDB();
+  return new Promise((res,rej)=>{
+    const req=d.transaction('recordings','readonly').objectStore('recordings').getAll();
+    req.onsuccess=()=>res(req.result.reverse());req.onerror=e=>rej(e.target.error);
+  });
+}
+async function deleteRec(id){
+  const d=await openDB();
+  return new Promise((res,rej)=>{
+    const tx=d.transaction('recordings','readwrite');
+    tx.objectStore('recordings').delete(id);
+    tx.oncomplete=()=>res();tx.onerror=e=>rej(e.target.error);
+  });
+}
+function fmtSize(b){if(b<1024)return b+' B';if(b<1048576)return(b/1024).toFixed(0)+' KB';return(b/1048576).toFixed(1)+' MB'}
+
+// ── LIBRARY ──
+async function openLibrary(){
+  closeMenu();document.getElementById('library-panel').classList.add('open');
+  const body=document.getElementById('library-body');
+  body.innerHTML='<div class="library-empty">Carregando…</div>';
+  try{
+    const recs=await getAllRecs();
+    if(!recs.length){body.innerHTML='<div class="library-empty">Nenhuma gravação ainda</div>';return}
+    body.innerHTML='';
+    recs.forEach(r=>{
+      const card=document.createElement('div');card.className='rec-card';
+      card.innerHTML=`<div class="rec-card-info"><div class="rec-card-name">${r.name}</div><div class="rec-card-meta">${fmtSize(r.size)}</div></div>
+        <div class="rec-card-actions">
+          <button class="btn-act" onclick="playLibRec(${r.id})" title="Ouvir">▶</button>
+          <button class="btn-act" onclick="exportRec(${r.id})" title="Exportar">📤</button>
+          <button class="btn-act del" onclick="delLibRec(${r.id},this)" title="Apagar">🗑</button>
+        </div>`;
+      body.appendChild(card);
+    });
+  }catch(e){body.innerHTML='<div class="library-empty">Erro ao carregar</div>'}
+}
+async function playLibRec(id){
+  const d=await openDB();
+  const req=d.transaction('recordings','readonly').objectStore('recordings').get(id);
+  req.onsuccess=()=>{if(req.result){const u=URL.createObjectURL(req.result.blob);const a=new Audio(u);a.play();a.onended=()=>URL.revokeObjectURL(u)}};
+}
+async function exportRec(id){
+  const d=await openDB();
+  const req=d.transaction('recordings','readonly').objectStore('recordings').get(id);
+  req.onsuccess=()=>{
+    if(req.result){
+      const r=req.result;const u=URL.createObjectURL(r.blob);
+      const ext=r.type.includes('mp4')?'mp4':r.type.includes('ogg')?'ogg':'webm';
+      const a=document.createElement('a');
+      a.href=u;a.download=r.name.replace(/[·:]/g,'-').replace(/\s+/g,'_')+'.'+ext;
+      a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);
+    }
+  };
+}
+async function delLibRec(id,btn){
+  if(!confirm('Apagar esta gravação? Não pode ser desfeito.'))return;
+  await deleteRec(id);btn.closest('.rec-card').remove();
+  if(!document.getElementById('library-body').children.length)
+    document.getElementById('library-body').innerHTML='<div class="library-empty">Nenhuma gravação</div>';
+}
+function closeLibrary(){document.getElementById('library-panel').classList.remove('open')}
+async function exportLastRec(){
+  closeMenu();
+  try{const recs=await getAllRecs();if(!recs.length){alert('Nenhuma gravação encontrada.');return}exportRec(recs[0].id)}
+  catch(e){alert('Erro ao exportar.')}
+}
+
+// ── MENU ──
+function openMenu(){document.getElementById('menu-overlay').classList.add('open');document.getElementById('menu-drawer').classList.add('open')}
+function closeMenu(){document.getElementById('menu-overlay').classList.remove('open');document.getElementById('menu-drawer').classList.remove('open')}
+function openManual(){
+  alert('Manual do Estúdio Plá\n\n① Selecione FOCO, PAUSA CURTA ou PAUSA LONGA\n② Use +5 +10 +30 +60 para adicionar tempo livremente\n③ Toque PREPARAR no gravador para armar o microfone\n④ Dispare o timer — o gravador inicia junto automaticamente\n⑤ Suas gravações ficam salvas em ☰ → Minhas gravações\n⑥ Toque no ponto Estúdio Plá para ouvir o Logotone');
+}
+function wantV2(){
+  closeMenu();
+  const email=prompt('Seu e-mail para receber o acesso ao v2.0:');
+  if(email&&email.includes('@'))alert('Perfeito! Você será um dos primeiros no v2.0 com transcrição automática. 🎙');
+}
+
+// ── MEDIA SESSION ──
+function setupMS(){
+  if(!('mediaSession' in navigator))return;
+  navigator.mediaSession.metadata=new MediaMetadata({title:'Timer · Estúdio Plá',artist:'Estúdio Plá',album:MODES[mode]?.label||'Cronômetro'});
+  navigator.mediaSession.setActionHandler('play',()=>{if(!pomoRun)togglePomo()});
+  navigator.mediaSession.setActionHandler('pause',()=>{if(pomoRun)togglePomo()});
+  navigator.mediaSession.setActionHandler('nexttrack',()=>resetPomo());
+}
+
+// ── UTILS ──
+const pad=n=>String(n).padStart(2,'0');
+function msStr(ms){
+  const s=Math.floor(ms/1000),cs=Math.floor((ms%1000)/10);
+  const hh=Math.floor(s/3600),mm=Math.floor((s%3600)/60),ss=s%60;
+  return(hh>0?pad(hh)+':':'')+pad(mm)+':'+pad(ss)+'.'+pad(cs);
+}
+
+// ── INIT ──
+renderPomo(pomoLeft);ringProg(1);renderChrono(0);
+if(alarmVoice)enablePlay();
+openDB().catch(()=>{});
+if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
+</script>
+</body>
+</html>
