@@ -375,6 +375,7 @@ body{color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'SF Pro Disp
       <div class="transcript-actions">
         <button class="btn-transcript email" onclick="emailTranscript()">ENVIAR POR E-MAIL</button>
         <button class="btn-transcript" onclick="copyTranscript()">COPIAR</button>
+        <button class="btn-transcript" onclick="downloadTranscript()">BAIXAR .TXT</button>
       </div>
     </div>
   </div>
@@ -711,11 +712,16 @@ function armRecording(label){
         lastBlob=blob;
         if(lastURL)URL.revokeObjectURL(lastURL);
         lastURL=URL.createObjectURL(blob);
-        await new Promise(res=>{
-          const fr=new FileReader();
-          fr.onload=()=>{alarmVoice=fr.result;try{localStorage.setItem('pla_alarm_voice',alarmVoice)}catch(e){}res()};
-          fr.readAsDataURL(blob);
-        });
+        // Só define o áudio do alarme automaticamente na PRIMEIRA gravação de todas.
+        // Depois disso, o alarme só muda se o usuário escolher "USAR NO ALARME" na biblioteca.
+        // Isso evita que cada gravação de sessão dispare sozinha o alarme (tocando por cima do PLAY manual).
+        if(!alarmVoice){
+          await new Promise(res=>{
+            const fr=new FileReader();
+            fr.onload=()=>{alarmVoice=fr.result;try{localStorage.setItem('pla_alarm_voice',alarmVoice)}catch(e){}res()};
+            fr.readAsDataURL(blob);
+          });
+        }
         setPlayState('dim');
         if(onRecordingSaved){onRecordingSaved();onRecordingSaved=null}
       };
@@ -762,6 +768,9 @@ function setPlayState(s){
 }
 function playTap(){
   if(playState!=='dim')return;
+  // trava contra duplo toque/duplo clique sintético em telas touch
+  if(playTap._busy)return; playTap._busy=true; setTimeout(()=>{playTap._busy=false},400);
+  if(currentAudio){ try{currentAudio.pause()}catch(e){} currentAudio=null; }
   const src=lastURL||alarmVoice;
   if(!src)return;
   currentAudio=new Audio(src);
@@ -855,8 +864,17 @@ function toggleVUStandalone(){
 
 /* ── TRANSCRIÇÃO AO VIVO (Web Speech API) ── */
 let speechRetries=0;
+function transcriptNotice(msg){
+  const box=document.getElementById('transcript-box');
+  const txt=document.getElementById('transcript-text');
+  box.style.display='block';
+  txt.textContent=msg;
+}
 function startRecognition(){
-  if(!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window))return;
+  if(!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)){
+    transcriptNotice('Este navegador não tem transcrição automática ao vivo. O áudio está sendo gravado normalmente — você pode ouvir e exportar depois, mas o texto não será gerado neste aparelho.');
+    return;
+  }
   try{
     const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
     recognition=new SR();
@@ -876,14 +894,23 @@ function startRecognition(){
       // erros passageiros (no-speech, network, audio-capture) não devem matar a função.
       // só desistimos depois de várias falhas seguidas.
       speechRetries++;
+      if(speechRetries>=8){
+        transcriptNotice('A transcrição automática parou de responder neste aparelho ('+e.error+'). O áudio continua sendo gravado normalmente — você pode ouvir e exportar depois.');
+      }
     };
     recognition.onend=()=>{
       if(recState==='recording'&&speechRetries<8){
-        try{recognition.start()}catch(e){speechRetries++}
+        try{recognition.start()}catch(e){
+          speechRetries++;
+          transcriptNotice('Não foi possível reiniciar a transcrição automática neste aparelho. O áudio continua sendo gravado normalmente.');
+        }
       }
     };
     recognition.start();
-  }catch(e){ console.warn('transcrição indisponível neste dispositivo',e); }
+  }catch(e){
+    console.warn('transcrição indisponível neste dispositivo',e);
+    transcriptNotice('Transcrição automática indisponível neste aparelho. O áudio continua sendo gravado normalmente — você pode ouvir e exportar depois.');
+  }
 }
 function stopRecognition(){
   if(recognition){ recognition.onend=null; try{recognition.stop()}catch(e){} recognition=null; }
@@ -908,6 +935,18 @@ function copyTranscript(){
     const prev=s.textContent;s.textContent='texto copiado';
     setTimeout(()=>{if(playState==='dim')s.textContent='gravação pronta'},1500);
   });
+}
+function downloadTranscriptFile(text,name){
+  if(!text||!text.trim()){alert('Ainda não há transcrição para baixar.');return}
+  const blob=new Blob([text],{type:'text/plain;charset=utf-8'});
+  const u=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=u;a.download=(name||'transcricao').replace(/[·:]/g,'-').replace(/\s+/g,'_')+'.txt';
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(u),1000);
+}
+function downloadTranscript(){
+  downloadTranscriptFile(lastTranscript||document.getElementById('transcript-text').textContent||'','Estudio_Pla_transcricao');
 }
 
 /* ── INDEXEDDB ── */
@@ -965,6 +1004,7 @@ async function openLibrary(){
           <button class="btn-act" onclick="playLibRec(${r.id})" title="Ouvir">▶</button>
           <button class="btn-act" onclick="exportRec(${r.id})" title="Exportar áudio">📤</button>
           ${r.transcript?`<button class="btn-act" onclick="emailLibTranscript(${r.id})" title="Enviar transcrição">✉</button>`:''}
+          ${r.transcript?`<button class="btn-act" onclick="downloadLibTranscript(${r.id})" title="Baixar .txt">⬇</button>`:''}
           <button class="btn-act del" onclick="delLibRec(${r.id},this)" title="Apagar">🗑</button>
         </div></div>
         ${r.transcript?`<div class="rec-card-transcript">${r.transcript}</div>`:''}
@@ -988,6 +1028,15 @@ async function exportRec(id){
       const a=document.createElement('a');
       a.href=u;a.download=r.name.replace(/[·:]/g,'-').replace(/\s+/g,'_')+'.'+ext;
       a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);
+    }
+  };
+}
+async function downloadLibTranscript(id){
+  const d=await openDB();
+  const req=d.transaction('recordings','readonly').objectStore('recordings').get(id);
+  req.onsuccess=()=>{
+    if(req.result&&req.result.transcript){
+      downloadTranscriptFile(req.result.transcript,req.result.name);
     }
   };
 }
